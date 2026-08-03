@@ -8,23 +8,21 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class OtpMail extends Mailable
+class OTPMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public string $otp;
-    public string $appName;
+    public $otp;
 
-    public function __construct(string $otp)
+    public function __construct($otp)
     {
         $this->otp = $otp;
-        $this->appName = 'Compolojo';
     }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: '🔐 Your Compolojo Verification Code',
+            subject: 'Your OTP Code - Combolojos',
         );
     }
 
@@ -32,10 +30,7 @@ class OtpMail extends Mailable
     {
         return new Content(
             view: 'emails.otp',
-            with: [
-                'otp' => $this->otp,
-                'appName' => $this->appName,
-            ],
+            with: ['otp' => $this->otp]
         );
     }
 }

@@ -1,27 +1,34 @@
 <?php
 
-use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Auth\AuthController;
 use Illuminate\Support\Facades\Route;
 
-// Test Route
-Route::get('/test', function () {
-    return response()->json([
-        'message' => 'Compolojo API is running!',
-        'version' => '1.0.0',
-        'status' => 'OK'
-    ]);
-});
+// ============================================================
+// ===== ለሁሉም ክፍት የሆኑ ሩቶች =====
+// ============================================================
+Route::post('/auth/send-otp', [AuthController::class, 'sendOTP']);
+Route::post('/auth/verify-otp', [AuthController::class, 'verifyOTP']);
+Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/auth/validate-phone', [AuthController::class, 'validatePhone']);
+Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 
-// Auth Routes - Public
-Route::prefix('auth')->group(function () {
-    Route::post('/send-otp', [AuthController::class, 'sendOTP']);
-    Route::post('/verify-otp', [AuthController::class, 'verifyOTP']);
-    Route::post('/check-email', [AuthController::class, 'checkEmail']);
-});
-
-// Auth Routes - Protected (Sanctum)
-Route::middleware(['auth:sanctum'])->prefix('auth')->group(function () {
-    Route::get('/me', [AuthController::class, 'me']);
-    Route::post('/complete-profile', [AuthController::class, 'completeProfile']);
-    Route::post('/logout', [AuthController::class, 'logout']);
+// ============================================================
+// ===== በSanctum የሚጠበቁ ሩቶች (ቶከን ያስፈልጋል) =====
+// ============================================================
+Route::middleware(['auth:sanctum'])->group(function () {
+    // መገለጫ ሙሌት (አዲስ ተጠቃሚ)
+    Route::post('/auth/complete-profile', [AuthController::class, 'completeProfile']);
+    
+    // መገለጫ ማስተካከያ (ነባር ተጠቃሚ)
+    Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
+    Route::patch('/auth/profile', [AuthController::class, 'updateProfile']);
+    
+    // የይለፍ ቃል መቀየር
+    Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+    
+    // የአሁኑን ተጠቃሚ ማግኘት
+    Route::get('/auth/me', [AuthController::class, 'me']);
+    
+    // መውጣት
+    Route::post('/auth/logout', [AuthController::class, 'logout']);
 });

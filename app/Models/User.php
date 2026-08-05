@@ -34,17 +34,20 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    /**
+     * ዳታቤዝ ውስጥ ያሉ ቀናትን ወደ Carbon Object ለመቀየር (ለጊዜ ንፅፅር ወሳኝ ነው)
+     */
     protected $casts = [
         'email_verified_at' => 'datetime',
         'phone_verified_at' => 'datetime',
-        'otp_expires_at' => 'datetime',
+        'otp_expires_at' => 'datetime', // 👈 ኦቲፒው ማለፉን ለማወቅ የግድ ያስፈልጋል
         'otp_last_attempt_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
 
-    // ===== ሚና ማረጋገጫ =====
+    // ===== ሚና ማረጋገጫ (Role Checks) =====
     public function isUser(): bool
     {
         return $this->role === 'user' || $this->role === null;
@@ -55,7 +58,7 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
-    // ===== መገለጫ ሁኔታ =====
+    // ===== መገለጫ ሁኔታ (Profile Status) =====
     public function isProfileComplete(): bool
     {
         return !empty($this->name) && !empty($this->password);
@@ -71,7 +74,11 @@ class User extends Authenticatable
         return !is_null($this->phone_verified_at);
     }
 
-    // ===== OTP ተግባራት =====
+    // ===== OTP ተግባራት (OTP Logic) =====
+    
+    /**
+     * ኦቲፒው ገና ያላለፈበት መሆኑን ያረጋግጣል
+     */
     public function hasValidOTP(): bool
     {
         return !is_null($this->otp_code) && 
@@ -79,9 +86,13 @@ class User extends Authenticatable
                $this->otp_expires_at->isFuture();
     }
 
+    /**
+     * ተጠቃሚው ብዙ ጊዜ በስህተት ሞክሮ ታግዶ እንደሆነ ያረጋግጣል
+     */
     public function canAttemptOTP(): bool
     {
         if ($this->otp_attempts >= 5) {
+            // ከ30 ደቂቃ በኋላ በድጋሚ መሞከር ይችላል
             if ($this->otp_last_attempt_at && 
                 $this->otp_last_attempt_at->addMinutes(30)->isPast()) {
                 $this->resetOTPAttempts();
@@ -106,6 +117,9 @@ class User extends Authenticatable
         $this->save();
     }
 
+    /**
+     * ኦቲፒ ስራውን ሲጨርስ ዳታውን ለማጽዳት
+     */
     public function clearOTP(): void
     {
         $this->otp_code = null;

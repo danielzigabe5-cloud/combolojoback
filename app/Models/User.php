@@ -19,7 +19,7 @@ class User extends Authenticatable
         'phone_country_code',
         'phone_country_iso',
         'password',
-        'role',
+        'role', // ይህን ያካትቱ
         'otp_code',
         'otp_expires_at',
         'otp_attempts',
@@ -34,13 +34,10 @@ class User extends Authenticatable
         'remember_token',
     ];
 
-    /**
-     * ዳታቤዝ ውስጥ ያሉ ቀናትን ወደ Carbon Object ለመቀየር (ለጊዜ ንፅፅር ወሳኝ ነው)
-     */
     protected $casts = [
         'email_verified_at' => 'datetime',
         'phone_verified_at' => 'datetime',
-        'otp_expires_at' => 'datetime', // 👈 ኦቲፒው ማለፉን ለማወቅ የግድ ያስፈልጋል
+        'otp_expires_at' => 'datetime',
         'otp_last_attempt_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -50,12 +47,17 @@ class User extends Authenticatable
     // ===== ሚና ማረጋገጫ (Role Checks) =====
     public function isUser(): bool
     {
-        return $this->role === 'user' || $this->role === null;
+        return $this->role === 'user';
     }
 
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
+    }
+
+    public function isOwner(): bool
+    {
+        return $this->role === 'partner';
     }
 
     // ===== መገለጫ ሁኔታ (Profile Status) =====
@@ -76,9 +78,6 @@ class User extends Authenticatable
 
     // ===== OTP ተግባራት (OTP Logic) =====
     
-    /**
-     * ኦቲፒው ገና ያላለፈበት መሆኑን ያረጋግጣል
-     */
     public function hasValidOTP(): bool
     {
         return !is_null($this->otp_code) && 
@@ -86,13 +85,9 @@ class User extends Authenticatable
                $this->otp_expires_at->isFuture();
     }
 
-    /**
-     * ተጠቃሚው ብዙ ጊዜ በስህተት ሞክሮ ታግዶ እንደሆነ ያረጋግጣል
-     */
     public function canAttemptOTP(): bool
     {
         if ($this->otp_attempts >= 5) {
-            // ከ30 ደቂቃ በኋላ በድጋሚ መሞከር ይችላል
             if ($this->otp_last_attempt_at && 
                 $this->otp_last_attempt_at->addMinutes(30)->isPast()) {
                 $this->resetOTPAttempts();
@@ -117,9 +112,6 @@ class User extends Authenticatable
         $this->save();
     }
 
-    /**
-     * ኦቲፒ ስራውን ሲጨርስ ዳታውን ለማጽዳት
-     */
     public function clearOTP(): void
     {
         $this->otp_code = null;

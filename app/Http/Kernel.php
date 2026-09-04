@@ -4,5 +4,9 @@ protected $middlewareGroups = [
         'throttle:api',
         \Illuminate\Routing\Middleware\SubstituteBindings::class,
         \App\Http\Middleware\CorsMiddleware::class,
+        'owner' => \App\Http\Middleware\OwnerMiddleware::class,
+        'admin' => \App\Http\Middleware\AdminMiddleware::class,
+        'user' => \App\Http\Middleware\UserMiddleware::class,
+        
     ],
 ];

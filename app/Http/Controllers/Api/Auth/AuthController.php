@@ -19,6 +19,7 @@ class AuthController extends Controller
             'name' => $user->name,
             'email' => $user->email,
             'phone_number' => $user->phone_number,
+            'role' => $user->role ?? 'user', // 👈 ይህን አስፈላጊ መስመር ይጨምሩ!
             'isProfileComplete' => !empty($user->password) && !empty($user->name),
         ];
     }
@@ -30,9 +31,9 @@ class AuthController extends Controller
         'email' => 'required|email|exists:users,email',
         'password' => 'required|min:6',
     ], [
-        'email.exists' => 'ይህ ኢሜይል አልተመዘገበም። እባክዎ መጀመሪያ ይመዝገቡ።',
-        'email.required' => 'ኢሜይል ያስፈልጋል',
-        'password.required' => 'ፓስዎርድ ያስፈልጋል'
+        'email.exists' => 'This Email Is Not Registered. please register first.',
+        'email.required' => 'Required Email',
+        'password.required' => 'Required Password'
     ]);
 
     if ($validator->fails()) {
@@ -46,30 +47,45 @@ class AuthController extends Controller
         // 2. ተጠቃሚውን መፈለግ
         $user = User::where('email', $request->email)->first();
 
-        // 3. ፓስዎርድ በትክክል መኖሩን እና መመሳሰሉን ማረጋገጥ
+        // 3. ፓስዎርድ ማረጋገጥ
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
                 'success' => false,
-                'message' => 'የገቡት ኢሜይል ወይም ፓስዎርድ የተሳሳተ ነው።'
+                'message' => 'Invalid Credential!'
             ], 401);
         }
 
-        // 4. Token መፍጠር
+        // ✅ 4. አሁን ተጠቃሚው መሆኑ ስለታወቀ last_login_at አፕዴት እናደርጋለን
+        $user->update([
+            'last_login_at' => now()
+        ]);
+
+        // 5. Token መፍጠር
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        // 6. የAccess Logic
+        $canUseMobile = ($user->role === 'user'); 
+        $canUseWeb = true; 
 
         return response()->json([
             'success' => true,
-            'message' => 'በተሳካ ሁኔታ ገብተዋል!',
+            'message' => 'login successfully!',
             'data' => [
                 'token' => $token,
-                'user' => $this->formatUserResponse($user)
+                'user' => $this->formatUserResponse($user),
+                'role' => $user->role ?? 'user',
+                'access' => [
+                    'mobile_app' => $canUseMobile,
+                    'web_portal' => $canUseWeb
+                ]
             ]
         ], 200);
 
     } catch (\Exception $e) {
+        \Log::error('Login error: ' . $e->getMessage()); // ስህተቱን በሎግ እንይ
         return response()->json([
             'success' => false,
-            'message' => 'የሰርቨር ስህተት አጋጥሟል፤ እባክዎ ቆይተው ይሞክሩ።'
+            'message' => 'internal server error, please try again later.'
         ], 500);
     }
 }
@@ -128,7 +144,7 @@ class AuthController extends Controller
             'next_screen' => $isComplete ? 'home' : 'complete_profile',
             'data' => [
                 'token' => $token,
-                'user' => $this->formatUserResponse($user),
+                'user' => $this->formatUserResponse($user), // 👈 role እዚህ ይገኛል
             ]
         ]);
     }
@@ -140,7 +156,7 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:6|confirmed',
         ]);
 
         if ($validator->fails()) {
@@ -156,7 +172,7 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Profile completed successfully',
-            'data' => ['user' => $this->formatUserResponse($user)]
+            'data' => ['user' => $this->formatUserResponse($user)] // 👈 role እዚህ ይገኛል
         ]);
     }
 
@@ -167,7 +183,7 @@ class AuthController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => $this->formatUserResponse($request->user())
+            'data' => $this->formatUserResponse($request->user()) // 👈 role እዚህ ይገኛል
         ]);
     }
 
@@ -179,4 +195,5 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
         return response()->json(['success' => true, 'message' => 'Logged out successfully']);
     }
+   
 }

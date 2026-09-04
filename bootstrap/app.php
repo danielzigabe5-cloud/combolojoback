@@ -15,10 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // ለCORS ማዋቀር - ሁሉንም ጥያቄዎች ለመፍቀድ
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
         
-        // ወይም ለAPI ብቻ
-        // $middleware->api(prepend: [
-        //     \Illuminate\Http\Middleware\HandleCors::class,
-        // ]);
+       $middleware->alias([
+        'owner' => \App\Http\Middleware\OwnerMiddleware::class, // 👈 ይህ መስመር መኖሩን አረጋግጥ
+        'admin' => \App\Http\Middleware\AdminMiddleware::class,
+        'user' => \App\Http\Middleware\UserMiddleware::class,
+    ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

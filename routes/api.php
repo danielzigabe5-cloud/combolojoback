@@ -2,17 +2,16 @@
 
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Dashboard\AdminDashboardController;
-use App\Http\Controllers\Api\Dashboard\OwnerDashboardController;
+// use App\Http\Controllers\Api\Dashboard\OwnerDashboardController;
 use App\Http\Controllers\Api\Dashboard\UserDashboardController;
 use App\Http\Controllers\VenueController;
 use App\Http\Controllers\Api\Resources\EventController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\Resources\GameController;
 use App\Http\Controllers\Api\Admin\AdminApprovalController;
-use App\Http\Controllers\Api\PartnerDashboardController; 
-use App\Http\Controllers\Api\PartnerSettingsController; // የቅንብር ኮንትሮለር
-use App\Http\Controllers\Api\PayoutController;          // የክፍያ ኮንትሮለር
-use App\Http\Controllers\Api\ScheduleController;        // የቀን መርሃግብር ኮንትሮለር
+// use App\Http\Controllers\Api\PartnerSettingsController; // የቅንብር ኮንትሮለር
+// use App\Http\Controllers\Api\PayoutController;          // የክፍያ ኮንትሮለር
+// use App\Http\Controllers\Api\ScheduleController;        // የቀን መርሃግብር ኮንትሮለር
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -85,27 +84,25 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // ============================================
     // OWNER (PARTNER) ROUTES
     // ============================================
-    Route::middleware('owner')->prefix('owner')->group(function () {
-        // 1. Overview & Dashboard
-        Route::get('/dashboard', [OwnerDashboardController::class, 'index']);
-        Route::get('/overview', [PartnerDashboardController::class, 'getOverview']);
+    // Route::middleware('owner')->prefix('owner')->group(function () {
+    //     // 1. Overview & Dashboard
+    //     Route::get('/dashboard', [OwnerDashboardController::class, 'index']);
+    //     // 2. Schedule (የቀን መርሃግብር)
+    //     Route::get('/schedule/venues', [ScheduleController::class, 'getVenues']);
+    //     Route::get('/schedule/slots', [ScheduleController::class, 'getSchedule']);
+    //     Route::post('/schedule/toggle-block', [ScheduleController::class, 'toggleBlock']);
 
-        // 2. Schedule (የቀን መርሃግብር)
-        Route::get('/schedule/venues', [ScheduleController::class, 'getVenues']);
-        Route::get('/schedule/slots', [ScheduleController::class, 'getSchedule']);
-        Route::post('/schedule/toggle-block', [ScheduleController::class, 'toggleBlock']);
+    //     // 3. Payouts (የክፍያ ታሪክ እና ወጪ ማድረጊያ)
+    //     Route::get('/payouts', [PayoutController::class, 'index']);
+    //     Route::post('/withdraw', [PayoutController::class, 'withdraw']);
 
-        // 3. Payouts (የክፍያ ታሪክ እና ወጪ ማድረጊያ)
-        Route::get('/payouts', [PayoutController::class, 'index']);
-        Route::post('/withdraw', [PayoutController::class, 'withdraw']);
-
-        // 4. Settings (የመለያ ቅንብሮች)
-        Route::prefix('settings')->group(function () {
-            Route::put('/profile', [PartnerSettingsController::class, 'updateProfile']);
-            Route::put('/bank', [PartnerSettingsController::class, 'updateBank']);
-            Route::put('/password', [PartnerSettingsController::class, 'updatePassword']);
-        });
-    });
+    //     // 4. Settings (የመለያ ቅንብሮች)
+    //     Route::prefix('settings')->group(function () {
+    //         Route::put('/profile', [PartnerSettingsController::class, 'updateProfile']);
+    //         Route::put('/bank', [PartnerSettingsController::class, 'updateBank']);
+    //         Route::put('/password', [PartnerSettingsController::class, 'updatePassword']);
+    //     });
+    // });
 
     // USER ROUTES
     Route::middleware('user')->prefix('user')->group(function () {

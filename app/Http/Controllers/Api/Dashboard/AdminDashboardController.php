@@ -183,43 +183,98 @@ class AdminDashboardController extends Controller
      */
     public function approveVenue(Request $request, $id)
 {
-    try {
-        // 1. ቤቱን ከባለቤቱ (user relationship) ጋር ፈልግ
-        $venue = Venue::with('user')->findOrFail($id);
-        
-        $admin = $request->user();
-        
-        // 2. የቤቱን ሁኔታ አስተካክል
-        $venue->update([
-            'is_active' => true,
-            'status' => 'approved',
-            'approved_by' => $admin->id,
-            'approved_at' => now(),
-        ]);
+try {
 
-        // 3. የቤቱን ባለቤት Role ወደ 'partner' ቀይር
-        // በሞዴሉ ላይ 'user()' የሚለው ሪሌሽንሺፕ 'owner_id'ን ስለሚጠቀም እንዲህ ይባላል፡
-        if ($venue->user) {
-            $venue->user->update([
-                'role' => 'partner'
-            ]);
-            
-            // Log አድርግ እርግጠኛ ለመሆን
-            Log::info("User ID {$venue->user->id} role updated to partner.");
-        }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Venue approved and owner promoted to partner!',
-            'data' => $venue
-        ]);
-    } catch (\Exception $e) {
-        Log::error('approveVenue error: ' . $e->getMessage());
+    // 1. Find venue
+    $venue = Venue::findOrFail($id);
+
+    // 2. Get venue owner BEFORE updating venue
+    $ownerId = $venue->owner_id ?? $venue->user_id;
+
+    if (!$ownerId) {
         return response()->json([
             'success' => false,
-            'message' => 'Failed to approve venue: ' . $e->getMessage()
-        ], 500);
+            'message' => 'This venue does not have an owner.'
+        ], 400);
     }
+
+    // 3. Find owner
+    $owner = \App\Models\User::find($ownerId);
+
+    if (!$owner) {
+        \Log::error('VENUE OWNER NOT FOUND', [
+            'venue_id' => $venue->id,
+            'owner_id' => $ownerId,
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Venue owner not found.',
+            'owner_id' => $ownerId,
+        ], 404);
+    }
+
+    // 4. Approve venue
+    $venue->is_active = true;
+    $venue->status = 'approved';
+    $venue->approved_by = $request->user()->id;
+    $venue->approved_at = now();
+    $venue->save();
+
+    // 5. Automatically promote owner to partner
+    $owner->role = 'partner';
+    $owner->save();
+    $owner->refresh();
+
+    // 6. Log everything
+    \Log::info('VENUE APPROVED SUCCESSFULLY', [
+        'venue_id' => $venue->id,
+        'venue_name' => $venue->name,
+
+        'owner_id' => $owner->id,
+        'owner_email' => $owner->email,
+
+        'role_after_update' => $owner->role,
+
+        'approved_by' => $request->user()->id,
+    ]);
+
+    // 7. Return response
+    return response()->json([
+        'success' => true,
+        'message' => 'Venue approved and owner promoted to partner successfully.',
+
+        'venue' => [
+            'id' => $venue->id,
+            'name' => $venue->name,
+            'status' => $venue->status,
+            'is_active' => $venue->is_active,
+        ],
+
+        'owner' => [
+            'id' => $owner->id,
+            'email' => $owner->email,
+            'role' => $owner->role,
+        ],
+    ], 200);
+
+} catch (\Exception $e) {
+
+    \Log::error('VENUE APPROVAL ERROR', [
+        'venue_id' => $id,
+        'error' => $e->getMessage(),
+        'line' => $e->getLine(),
+        'file' => $e->getFile(),
+    ]);
+
+    return response()->json([
+        'success' => false,
+        'message' => $e->getMessage(),
+    ], 500);
+}
+
+
 }
 
     public function rejectVenue(Request $request, $id)

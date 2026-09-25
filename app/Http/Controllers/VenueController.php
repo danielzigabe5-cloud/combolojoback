@@ -72,7 +72,7 @@ class VenueController extends Controller
         }
     }
 
-    public function store(Request $request)
+       public function store(Request $request)
     {
         try {
             $user = $request->user();
@@ -123,6 +123,7 @@ class VenueController extends Controller
             }
 
             // ✅ Sport types እና Facilities
+            // Decode the JSON strings sent from frontend into PHP arrays
             $sportTypes = $request->sport_types ? json_decode($request->sport_types, true) : [];
             $facilities = $request->facilities ? json_decode($request->facilities, true) : [];
 
@@ -138,8 +139,8 @@ class VenueController extends Controller
                 'capacity' => (int) $request->capacity,
                 'price_per_hour' => (float) $request->price_per_hour,
                 'image' => $imagePath,
-                'sport_types' => json_encode($sportTypes),
-                'facilities' => json_encode($facilities),
+                'sport_types' => $sportTypes, // ✅ Pass array directly (Model casts it)
+                'facilities' => $facilities,   // ✅ Pass array directly (Model casts it)
                 'is_active' => $isActive,
                 'status' => $status,
             ]);
@@ -164,7 +165,6 @@ class VenueController extends Controller
             ], 500);
         }
     }
-
     public function myVenues(Request $request)
     {
         try {

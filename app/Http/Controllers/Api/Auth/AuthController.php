@@ -19,70 +19,57 @@ private function formatUserResponse($user)
         'id' => $user->id,
         'name' => $user->name,
         'email' => $user->email,
-        'phone' => $user->phone, // 👈 'phone_number' የነበረውን ወደ 'phone' ቀይረው
+        'phone' => $user->phone_number ?? null,  // ✅ 'phone_number'
         'role' => $user->role ?? 'user',
-        'isProfileComplete' => !empty($user->password) && !empty($user->name),
+        'is_profile_complete' => !empty($user->password) && !empty($user->name),
     ];
 }
-    
 
-  public function login(Request $request)
+ public function login(Request $request)
 {
-    // 1. ቫሊዴሽን
     $validator = Validator::make($request->all(), [
         'email' => 'required|email',
         'password' => 'required|min:6',
     ]);
 
     if ($validator->fails()) {
-        return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+        return response()->json([
+            'success' => false,
+            'message' => $validator->errors()->first()
+        ], 422);
     }
 
-    $start = microtime(true); // ሰዓት መቁጠር ጀመረ
-
     try {
-        // 2. ተጠቃሚውን መፈለግ (አንዴ ብቻ)
         $user = User::where('email', trim($request->email))->first();
-        
-        $dbTime = microtime(true) - $start;
-        \Log::info("Login DB Search for {$request->email} took: {$dbTime} seconds");
 
-        // ኢሜይሉ ዳታቤዝ ውስጥ ከሌለ
+        // ❌ ተጠቃሚ ከሌለ
         if (!$user) {
             return response()->json([
                 'success' => false,
-                'message' => 'This account is not registered. Please register first.'
+                'message' => 'User not found',
             ], 404);
         }
 
-        // ምዝገባው ካልተጠናቀቀ (ፓስዎርድ ከሌለው)
-        if (empty($user->password)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Account exists but registration is incomplete. Please register again to get OTP.'
-            ], 403);
-        }
-
-        // 3. ፓስዎርድ ማረጋገጥ
+        // ❌ ፓስዎርድ ካልተስማማ
         if (!Hash::check($request->password, $user->password)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid password. Please try again.'
+                'message' => 'Invalid password. Please try again.',
             ], 401);
         }
 
-        // 4. Token መፍጠር (Sanctum)
+        // ✅ ስኬት
         $token = $user->createToken('auth_token')->plainTextToken;
-        
         $user->update(['last_login_at' => now()]);
 
         return response()->json([
-            'success' => true,
+            'success' => true,                    // ✅
             'message' => 'Login successful!',
+            'next_screen' => 'home',              // ✅ ይህን ጨምር!
             'data' => [
                 'token' => $token,
                 'user' => $this->formatUserResponse($user),
-                'role' => $user->role ?? 'user'
+                'role' => $user->role ?? 'user',
             ]
         ], 200);
 
@@ -90,7 +77,7 @@ private function formatUserResponse($user)
         \Log::error('Login error: ' . $e->getMessage());
         return response()->json([
             'success' => false,
-            'message' => 'Internal server error. Please try again later.'
+            'message' => 'Server error: ' . $e->getMessage(),
         ], 500);
     }
 }

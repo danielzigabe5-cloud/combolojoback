@@ -14,7 +14,11 @@ class AdminProfileController extends Controller
     {
         $user = $request->user();
 
-        // Validation
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated user'], 401);
+        }
+
+        // Validation Rules
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => ['required', 'email', Rule::unique('users')->ignore($user->id)],
@@ -22,24 +26,22 @@ class AdminProfileController extends Controller
             'avatar'   => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
-        // 1. Update Name and Email
+        // Update basic info
         $user->name = $request->name;
         $user->email = $request->email;
 
-        // 2. Update Password (if provided)
+        // Password Update (if filled)
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);
         }
 
-        // 3. Handle Profile Photo Upload
+        // Photo Upload Handling
         if ($request->hasFile('avatar')) {
-            // Remove previous avatar file if exists
-            if ($user->avatar) {
+            if ($user->avatar && !filter_var($user->avatar, FILTER_VALIDATE_URL)) {
                 $oldPath = str_replace('/storage/', '', $user->avatar);
                 Storage::disk('public')->delete($oldPath);
             }
 
-            // Store new avatar file
             $path = $request->file('avatar')->store('avatars', 'public');
             $user->avatar = Storage::url($path);
         }

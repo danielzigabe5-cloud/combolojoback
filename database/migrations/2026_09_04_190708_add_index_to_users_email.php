@@ -6,30 +6,32 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up()
+    public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            // ኢንዴክሱ አስቀድሞ ከሌለ ብቻ እንዲጨምር
-            if (!IndexExists('users', 'users_email_index')) {
+        if (!Schema::hasTable('users')) {
+            return;
+        }
+
+        try {
+            Schema::table('users', function (Blueprint $table) {
                 $table->index('email');
+            });
+        } catch (\Exception $e) {
+            // Index ካለ ችላ በለው
+            if (!str_contains($e->getMessage(), 'Duplicate key name')) {
+                throw $e;
             }
-        });
+        }
     }
 
-    public function down()
+    public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropIndex(['email']);
-        });
+        try {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropIndex(['email']);
+            });
+        } catch (\Exception $e) {
+            // ካልተገኘ ችላ በለው
+        }
     }
 };
-
-/**
- * ኢንዴክሱ መኖሩን ለማረጋገጥ የሚረዳ ረዳት ፋንክሽን
- */
-function IndexExists($table, $index) {
-    $conn = Schema::getConnection();
-    $dbSchemaManager = $conn->getDoctrineSchemaManager();
-    $indexes = $dbSchemaManager->listTableIndexes($table);
-    return array_key_exists($index, $indexes);
-}

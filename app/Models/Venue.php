@@ -11,8 +11,8 @@ class Venue extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'owner_id',
         'user_id',
+        'owner_id', // ✅ Added
         'name',
         'description',
         'location',
@@ -21,50 +21,37 @@ class Venue extends Model
         'capacity',
         'price_per_hour',
         'image',
+        'image_url',
         'sport_types',
         'facilities',
-        'is_active',
+        'is_active', // ✅ Added
         'status',
-        'approved_by',
+        'rejection_reason',
         'approved_at',
     ];
 
     protected $casts = [
-        'is_active' => 'boolean',
         'capacity' => 'integer',
         'price_per_hour' => 'decimal:2',
         'sport_types' => 'array',
         'facilities' => 'array',
+        'is_active' => 'boolean', // ✅ Added cast
         'approved_at' => 'datetime',
     ];
 
-    // ✅ ሙሉ የምስል URL ያመጣል - የአሁኑን ሰርቨር አድራሻ ይጠቀማል
+    // ✅ የምስል URL
     public function getImageUrlAttribute()
     {
         if ($this->image) {
-            // ሙሉ URL ይመልሱ (አሁን ያለውን ሰርቨር አድራሻ ይጠቀማል)
             return asset('storage/' . $this->image);
         }
         return null;
     }
 
-    // ✅ ለFrontend ተጨማሪ መረጃ
-    public function toArray()
-    {
-        $array = parent::toArray();
-        $array['image_url'] = $this->image_url;
-        $array['image_full_url'] = $this->image_url; // ተጨማሪ
-        return $array;
-    }
-
+    // ✅ Relationships
     public function user()
     {
-        return $this->belongsTo(User::class, 'owner_id');
-    }
-
-    public function approver()
-    {
-        return $this->belongsTo(User::class, 'approved_by');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function bookings()

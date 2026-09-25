@@ -5,13 +5,18 @@ use App\Http\Controllers\Api\Dashboard\AdminDashboardController;
 // use App\Http\Controllers\Api\Dashboard\OwnerDashboardController;
 use App\Http\Controllers\Api\Dashboard\UserDashboardController;
 use App\Http\Controllers\VenueController;
-use App\Http\Controllers\Api\Resources\EventController;
+use App\Http\Controllers\chapaController;
+use App\Http\Controllers\Api\Resources\EventController as ResourceEventController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\Resources\GameController;
 use App\Http\Controllers\Api\Admin\AdminApprovalController;
 // use App\Http\Controllers\Api\PartnerSettingsController; // የቅንብር ኮንትሮለር
 // use App\Http\Controllers\Api\PayoutController;          // የክፍያ ኮንትሮለር
 // use App\Http\Controllers\Api\ScheduleController;        // የቀን መርሃግብር ኮንትሮለር
+
+// ለአዲሱ Events እና EventRegistration Import የተደረጉ
+use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\EventRegistrationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -49,6 +54,8 @@ Route::prefix('auth')->group(function () {
 Route::get('/venues', [VenueController::class, 'index']);
 Route::get('/venues/{id}', [VenueController::class, 'show']);
 Route::get('/events', [EventController::class, 'index']);
+Route::post('/events', [EventController::class, 'store']);
+Route::post('/event-registrations', [EventRegistrationController::class, 'store']);
 Route::get('/games', [GameController::class, 'index']);
 
 Route::get('/check-availability', [BookingController::class, 'checkAvailability']);
@@ -109,3 +116,5 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/dashboard', [UserDashboardController::class, 'index']);
     });
 });
+
+Route::get('/chapa/return', [chapaController::class, 'return'])->name('chapa.return');

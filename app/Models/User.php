@@ -19,6 +19,8 @@ class User extends Authenticatable
         'phone_country_code',
         'phone_country_iso',
         'password',
+        'google_id',       // ✅ ያክሉ
+        'avatar',  
         'role', // ይህን ያካትቱ
         'otp_code',
         'otp_expires_at',
@@ -118,5 +120,9 @@ class User extends Authenticatable
         $this->otp_expires_at = null;
         $this->resetOTPAttempts();
         $this->save();
-    }
+        }
+public function notificationSetting()
+{
+    return $this->hasOne(NotificationSetting::class);
+}
 }

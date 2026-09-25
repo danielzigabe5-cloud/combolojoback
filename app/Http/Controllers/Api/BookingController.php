@@ -247,28 +247,56 @@ class BookingController extends Controller
     /**
      * ለሞባይል ተጠቃሚ የራሱን ቡኪንግ ማሳያ
      */
-    public function myBookings()
-    {
-        $bookings = Booking::with(['venue'])
-            ->where('user_id', Auth::id())
-            ->latest()
-            ->get();
-        return response()->json($bookings);
+   public function myBookings()
+{
+    $userId = Auth::id();
+    
+    \Log::info('myBookings called', [
+        'user_id'    => $userId,
+        'auth_check' => Auth::check(),
+        'auth_email' => Auth::user()?->email,
+        'header'     => request()->header('Authorization'),
+    ]);
+
+    // ✅ Auth null ከሆነ ግልጽ 401 error
+    if (!$userId) {
+        return response()->json([
+            'success' => false,
+            'error'   => 'Unauthenticated',
+            'message' => 'Token missing or invalid. Please login again.'
+        ], 401);
     }
+
+    $bookings = Booking::with(['venue'])
+        ->where('user_id', $userId)
+        ->latest()
+        ->get();
+
+    return response()->json([
+        'success'  => true,
+        'count'    => $bookings->count(),
+        'bookings' => $bookings,
+    ]);
+}
 
     /**
      * ዝርዝር መረጃ ማሳያ
      */
     public function show($id)
-    {
-        $booking = Booking::with(['venue', 'user'])->findOrFail($id);
-        
-        if ($booking->user_id != Auth::id() && Auth::user()->role !== 'admin') {
-            return response()->json(['error' => 'Unauthorized'], 403);
-        }
-        
-        return response()->json($booking);
+{
+    $booking = Booking::with(['venue', 'user'])->findOrFail($id);
+    
+    $user = Auth::user();
+    if (!$user) {
+        return response()->json(['error' => 'Unauthenticated'], 401);
     }
+    
+    if ($booking->user_id != $user->id && $user->role !== 'admin') {
+        return response()->json(['error' => 'Unauthorized'], 403);
+    }
+    
+    return response()->json($booking);
+}
     // app/Http/Controllers/Api/BookingController.php
 
 /**

@@ -13,7 +13,7 @@ use App\Http\Controllers\Api\Admin\AdminApprovalController;
 // use App\Http\Controllers\Api\PartnerSettingsController; // የቅንብር ኮንትሮለር
 // use App\Http\Controllers\Api\PayoutController;          // የክፍያ ኮንትሮለር
 // use App\Http\Controllers\Api\ScheduleController;        // የቀን መርሃግብር ኮንትሮለር
-
+use App\Http\Controllers\Api\NotificationSettingController;
 // ለአዲሱ Events እና EventRegistration Import የተደረጉ
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\EventRegistrationController;
@@ -40,7 +40,7 @@ Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/send-otp', [AuthController::class, 'sendOTP']);
     Route::post('/verify-otp', [AuthController::class, 'verifyOTP']);
-    
+    Route::post('/google', [AuthController::class, 'googleLogin']);
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/complete-profile', [AuthController::class, 'completeProfile']);
         Route::get('/me', [AuthController::class, 'me']);
@@ -73,6 +73,20 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/my-bookings', [BookingController::class, 'myBookings']);
     Route::get('/bookings/{id}', [BookingController::class, 'show']);
     
+     // ═══════════════════════════════════════════════════════
+    // ✅ NOTIFICATION SETTINGS — ይህን ጨምር! (ከዚህ በታች)
+    // ═══════════════════════════════════════════════════════
+    Route::get('/notification-settings',
+        [NotificationSettingController::class, 'show']);
+
+    Route::post('/notification-settings',
+        [NotificationSettingController::class, 'update']);
+
+    Route::post('/notification-settings/reset',
+        [NotificationSettingController::class, 'reset']);
+
+    Route::post('/notification-settings/test',
+        [NotificationSettingController::class, 'test']);
     // ============================================
     // ADMIN ROUTES (Admin only)
     // ============================================

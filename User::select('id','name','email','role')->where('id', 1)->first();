@@ -1,0 +1,40 @@
+[90m= [39m[34;4mIlluminate\Database\Eloquent\Collection[39;24m {#8204
+    [34mall[39m: [
+      [34;4mApp\Models\User[39;24m {#8206
+        [34mid[39m: [35m1[39m,
+        [34mname[39m: [32m"[39m[32mfeleke[39m[32m"[39m,
+        [34memail[39m: [32m"[39m[32mf@gmail.com[39m[32m"[39m,
+        [34mrole[39m: [32m"[39m[32madmin[39m[32m"[39m,
+      },
+      [34;4mApp\Models\User[39;24m {#8205
+        [34mid[39m: [35m2[39m,
+        [34mname[39m: [32m"[39m[32mgrum[39m[32m"[39m,
+        [34memail[39m: [32m"[39m[32mg@gmail.com[39m[32m"[39m,
+        [34mrole[39m: [32m"[39m[32muser[39m[32m"[39m,
+      },
+      [34;4mApp\Models\User[39;24m {#8208
+        [34mid[39m: [35m3[39m,
+        [34mname[39m: [32m"[39m[32mgebeyehu[39m[32m"[39m,
+        [34memail[39m: [32m"[39m[32mgg@gmail.com[39m[32m"[39m,
+        [34mrole[39m: [32m"[39m[32muser[39m[32m"[39m,
+      },
+      [34;4mApp\Models\User[39;24m {#8209
+        [34mid[39m: [35m4[39m,
+        [34mname[39m: [32m"[39m[32mgdhhd[39m[32m"[39m,
+        [34memail[39m: [32m"[39m[32mshewa7763@gmail.com[39m[32m"[39m,
+        [34mrole[39m: [32m"[39m[32muser[39m[32m"[39m,
+      },
+      [34;4mApp\Models\User[39;24m {#8210
+        [34mid[39m: [35m5[39m,
+        [34mname[39m: [32m"[39m[32mAbel Shewangzaw[39m[32m"[39m,
+        [34memail[39m: [32m"[39m[32mshewangzawabel8@gmail.com[39m[32m"[39m,
+        [34mrole[39m: [32m"[39m[32muser[39m[32m"[39m,
+      },
+      [34;4mApp\Models\User[39;24m {#8211
+        [34mid[39m: [35m6[39m,
+        [34mname[39m: [32m"[39m[32mDaniel Zegabe[39m[32m"[39m,
+        [34memail[39m: [32m"[39m[32mdanielzegabe@gmail.com[39m[32m"[39m,
+        [34mrole[39m: [32m"[39m[32muser[39m[32m"[39m,
+      },
+    ],
+  }

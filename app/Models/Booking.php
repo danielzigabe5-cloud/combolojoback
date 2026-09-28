@@ -15,15 +15,19 @@ class Booking extends Model
         'venue_id',
         'event_id',
         'game_id',
+        'user_name',            // ✅ ጨምር
+        'email',                // ✅ ጨምር
+        'phone_number',
         'start_time',
         'end_time',
-        'phone_number',
         'sport_type',
         'payment_method',
         'transaction_ref',
         'payment_screenshot',
         'total_price',
-        'status',
+        'number_of_players',    // ✅ ጨምር (Flutter ይልካል)
+        'status',               // pending, confirmed, cancelled, completed
+        'payment_status',       // ✅ ጨምር: pending, paid, failed
         'special_requests',
         'cancelled_at',
         'confirmed_at',
@@ -34,64 +38,67 @@ class Booking extends Model
         'start_time' => 'datetime',
         'end_time' => 'datetime',
         'total_price' => 'decimal:2',
+        'number_of_players' => 'integer',
         'cancelled_at' => 'datetime',
         'confirmed_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
 
-    /**
-     * Relationship: Booking belongs to a User
-     */
+    // ============================================
+    // 🔗 RELATIONSHIPS
+    // ============================================
+
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Relationship: Booking belongs to a Venue
-     */
     public function venue()
     {
         return $this->belongsTo(Venue::class);
     }
 
-    /**
-     * Relationship: Booking belongs to an Event (optional)
-     */
     public function event()
     {
         return $this->belongsTo(Event::class);
     }
 
-    /**
-     * Relationship: Booking belongs to a Game (optional)
-     */
     public function game()
     {
         return $this->belongsTo(Game::class);
     }
 
-    /**
-     * Check if booking is active
-     */
+    // ============================================
+    // 📊 STATUS HELPERS
+    // ============================================
+
     public function isActive()
     {
         return $this->status === 'confirmed' && $this->end_time > now();
     }
 
-    /**
-     * Check if booking is upcoming
-     */
     public function isUpcoming()
     {
         return $this->status === 'confirmed' && $this->start_time > now();
     }
 
-    /**
-     * Check if booking is past
-     */
     public function isPast()
     {
         return $this->end_time < now();
+    }
+
+    public function isPaid()           // ✅ ጨምር
+    {
+        return $this->payment_status === 'paid';
+    }
+
+    public function isPending()        // ✅ ጨምር
+    {
+        return $this->status === 'pending';
+    }
+
+    public function isConfirmed()      // ✅ ጨምር
+    {
+        return $this->status === 'confirmed';
     }
 }

@@ -1,134 +1,136 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\Admin\PayoutController;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\Dashboard\AdminDashboardController;
-// use App\Http\Controllers\Api\Dashboard\OwnerDashboardController;
 use App\Http\Controllers\Api\Dashboard\UserDashboardController;
 use App\Http\Controllers\VenueController;
-use App\Http\Controllers\chapaController;
-use App\Http\Controllers\Api\Resources\EventController as ResourceEventController;
+use App\Http\Controllers\ChapaController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\Resources\GameController;
 use App\Http\Controllers\Api\Admin\AdminApprovalController;
-// use App\Http\Controllers\Api\PartnerSettingsController; // የቅንብር ኮንትሮለር
-// use App\Http\Controllers\Api\PayoutController;          // የክፍያ ኮንትሮለር
-// use App\Http\Controllers\Api\ScheduleController;        // የቀን መርሃግብር ኮንትሮለር
+use App\Http\Controllers\Api\Admin\UserController;
 use App\Http\Controllers\Api\NotificationSettingController;
-// ለአዲሱ Events እና EventRegistration Import የተደረጉ
-use App\Http\Controllers\Api\EventController;
-use App\Http\Controllers\Api\EventRegistrationController;
-use Illuminate\Support\Facades\Route;
-
+use App\Http\Controllers\Api\Admin\ReportController;
+use App\Http\Controllers\Api\Admin\AdminProfileController;
+use App\Http\Controllers\Api\Admin\SettingsController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
 |--------------------------------------------------------------------------
 */
 
-Route::get('/', function () {
-    return response()->json([
-        'success' => true,
-        'message' => 'Backend is working correctly! Status 200 OK'
-    ]);
-});
+Route::get('/', fn () => response()->json([
+    'success' => true,
+    'message' => 'Backend is working correctly! Status 200 OK',
+]));
 
 // ============================================
-// AUTH ROUTES (Login, Register, OTP)
+// AUTH ROUTES
 // ============================================
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/send-otp', [AuthController::class, 'sendOTP']);
-    Route::post('/verify-otp', [AuthController::class, 'verifyOTP']);
-    Route::post('/google', [AuthController::class, 'googleLogin']);
+    Route::post('/login',       [AuthController::class, 'login']);
+    Route::post('/register',    [AuthController::class, 'register']);
+    Route::post('/send-otp',    [AuthController::class, 'sendOTP']);
+    Route::post('/verify-otp',  [AuthController::class, 'verifyOTP']);
+    Route::post('/google',      [AuthController::class, 'googleLogin']);
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/complete-profile', [AuthController::class, 'completeProfile']);
-        Route::get('/me', [AuthController::class, 'me']);
-        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::get('/me',                [AuthController::class, 'me']);
+        Route::post('/logout',           [AuthController::class, 'logout']);
     });
 });
 
 // ============================================
-// PUBLIC ROUTES (No Login required)
+// PUBLIC ROUTES
 // ============================================
-Route::get('/venues', [VenueController::class, 'index']);
-Route::get('/venues/{id}', [VenueController::class, 'show']);
-Route::get('/events', [EventController::class, 'index']);
-Route::post('/events', [EventController::class, 'store']);
-Route::post('/event-registrations', [EventRegistrationController::class, 'store']);
-Route::get('/games', [GameController::class, 'index']);
+Route::get('/venues',       [VenueController::class, 'index']);
+Route::get('/venues/{id}',  [VenueController::class, 'show']);
 
-Route::get('/check-availability', [BookingController::class, 'checkAvailability']);
-Route::get('/available-time-slots', [BookingController::class, 'getAvailableTimeSlots']);
+// Bookings — public helpers
+Route::get('/check-availability',    [BookingController::class, 'checkAvailability']);
+Route::get('/available-time-slots',  [BookingController::class, 'getAvailableTimeSlots']);
 
 // ============================================
-// PROTECTED ROUTES (Authentication required)
+// PROTECTED ROUTES
 // ============================================
 Route::middleware(['auth:sanctum'])->group(function () {
 
-    // Venue & General Booking
+    // ── Venues (owner) ──
     Route::post('/venues', [VenueController::class, 'store']);
     Route::get('/my-venues', [VenueController::class, 'myVenues']);
-    Route::post('/bookings', [BookingController::class, 'store']);
-    Route::get('/my-bookings', [BookingController::class, 'myBookings']);
-    Route::get('/bookings/{id}', [BookingController::class, 'show']);
-    
-     // ═══════════════════════════════════════════════════════
-    // ✅ NOTIFICATION SETTINGS — ይህን ጨምር! (ከዚህ በታች)
-    // ═══════════════════════════════════════════════════════
-    Route::get('/notification-settings',
-        [NotificationSettingController::class, 'show']);
+    Route::put('/my-venues/{id}',    [VenueController::class, 'update']);
+    Route::delete('/my-venues/{id}', [VenueController::class, 'destroy']);
+    Route::get('/my-venues/{id}/schedule',  [VenueController::class, 'getSchedule']);
+    Route::post('/my-venues/{id}/schedule', [VenueController::class, 'saveSchedule']);
 
-    Route::post('/notification-settings',
-        [NotificationSettingController::class, 'update']);
+    // ── Bookings ──
+    Route::post('/bookings',      [BookingController::class, 'store']);
+    Route::get('/my-bookings',    [BookingController::class, 'myBookings']);
+    Route::get('/bookings/{id}',  [BookingController::class, 'show']);
 
-    Route::post('/notification-settings/reset',
-        [NotificationSettingController::class, 'reset']);
+    // ── Notification settings ──
+    Route::get('/notification-settings',        [NotificationSettingController::class, 'show']);
+    Route::post('/notification-settings',       [NotificationSettingController::class, 'update']);
+    Route::post('/notification-settings/reset', [NotificationSettingController::class, 'reset']);
+    Route::post('/notification-settings/test',  [NotificationSettingController::class, 'test']);
 
-    Route::post('/notification-settings/test',
-        [NotificationSettingController::class, 'test']);
     // ============================================
-    // ADMIN ROUTES (Admin only)
+    // ADMIN
     // ============================================
     Route::middleware('admin')->prefix('admin')->group(function () {
+
+        // Dashboard
         Route::get('/dashboard', [AdminDashboardController::class, 'index']);
-        Route::get('/users', [AdminDashboardController::class, 'users']);
-        Route::get('/venues', [AdminApprovalController::class, 'index']); 
-        Route::get('/approvals/pending', [AdminApprovalController::class, 'pendingVenues']);
+
+        // Users
+        Route::get('/users',               [UserController::class, 'index']);
+        Route::get('/users/{id}',          [UserController::class, 'show']);
+        Route::patch('/users/{id}/role',   [UserController::class, 'updateRole']);
+        Route::patch('/users/{id}/status', [UserController::class, 'updateStatus']);
+
+        // Venues & Approvals
+        Route::get('/venues',                  [AdminApprovalController::class, 'index']);
+        Route::get('/approvals/pending',       [AdminApprovalController::class, 'pendingVenues']);
         Route::post('/approvals/{id}/approve', [AdminApprovalController::class, 'approveVenue']);
-        Route::post('/approvals/{id}/reject', [AdminApprovalController::class, 'rejectVenue']);
-        Route::get('/bookings-list', [BookingController::class, 'adminIndex']); 
-        Route::post('/bookings/{id}/confirm', [BookingController::class, 'confirm']); 
-        Route::post('/bookings/{id}/reject', [BookingController::class, 'reject']);
+        Route::post('/approvals/{id}/reject',  [AdminApprovalController::class, 'rejectVenue']);
+
+        // Bookings
+        Route::get('/bookings-list',            [BookingController::class, 'adminIndex']);
+        Route::post('/bookings/{id}/confirm',   [BookingController::class, 'confirm']);
+        Route::post('/bookings/{id}/reject',    [BookingController::class, 'reject']);
+    
+     Route::get('/wallet',                 [PayoutController::class, 'wallet']);
+    Route::get('/payouts',                [PayoutController::class, 'index']);
+    Route::patch('/payouts/{id}/approve', [PayoutController::class, 'approve']);
+    Route::patch('/payouts/{id}/reject',  [PayoutController::class, 'reject']);
+       
+     // 🆕 Settings
+    Route::get('/settings',              [SettingsController::class, 'index']);
+    Route::post('/settings',             [SettingsController::class, 'update']);
+    Route::post('/settings/clear-cache', [SettingsController::class, 'clearCache']);
+    Route::get('/settings/backup',       [SettingsController::class, 'backup']);
+
+    Route::post('/profile', [AdminProfileController::class, 'update']);
+    Route::get('/reports', [ReportController::class, 'index']);
     });
 
-    // ============================================
-    // OWNER (PARTNER) ROUTES
-    // ============================================
-    // Route::middleware('owner')->prefix('owner')->group(function () {
-    //     // 1. Overview & Dashboard
-    //     Route::get('/dashboard', [OwnerDashboardController::class, 'index']);
-    //     // 2. Schedule (የቀን መርሃግብር)
-    //     Route::get('/schedule/venues', [ScheduleController::class, 'getVenues']);
-    //     Route::get('/schedule/slots', [ScheduleController::class, 'getSchedule']);
-    //     Route::post('/schedule/toggle-block', [ScheduleController::class, 'toggleBlock']);
-
-    //     // 3. Payouts (የክፍያ ታሪክ እና ወጪ ማድረጊያ)
-    //     Route::get('/payouts', [PayoutController::class, 'index']);
-    //     Route::post('/withdraw', [PayoutController::class, 'withdraw']);
-
-    //     // 4. Settings (የመለያ ቅንብሮች)
-    //     Route::prefix('settings')->group(function () {
-    //         Route::put('/profile', [PartnerSettingsController::class, 'updateProfile']);
-    //         Route::put('/bank', [PartnerSettingsController::class, 'updateBank']);
-    //         Route::put('/password', [PartnerSettingsController::class, 'updatePassword']);
-    //     });
-    // });
-
-    // USER ROUTES
+    // ── USER ──
     Route::middleware('user')->prefix('user')->group(function () {
         Route::get('/dashboard', [UserDashboardController::class, 'index']);
     });
 });
 
-Route::get('/chapa/return', [chapaController::class, 'return'])->name('chapa.return');
+// ============================================
+// Chapa Payment
+// ============================================
+Route::prefix('chapa')->group(function () {
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/initialize',    [ChapaController::class, 'initialize']);
+        Route::get('/verify/{txRef}', [ChapaController::class, 'verify']);
+    });
+    Route::post('/callback', [ChapaController::class, 'callback']);
+    Route::get('/return',    [ChapaController::class, 'return']);
+});

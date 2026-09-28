@@ -5,40 +5,60 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\{Hash, Validator, Log};
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Google\Client as GoogleClient;
 
 class AuthController extends Controller
 {
-    /**
-     * ተጠቃሚው ሲገባ የሚመለስ ዳታ ፎርማት
-     */
+    // ============================================================
+    // HELPER — Format user response (WITH FULL AVATAR URL)
+    // ============================================================
     private function formatUserResponse($user)
     {
-        // ✅ የተስተካከለ ስሌት
-        // Name እና password ካሉ profile complete ነው
-        // (Phone ለ Google ተጠቃሚ አያስፈልግም)
+        if (!$user) {
+            return null;
+        }
+
         $isProfileComplete = !empty($user->name)
                           && strlen($user->name) > 2
                           && !empty($user->password);
-        
-        // ✅ ወይም profile_complete column ካለዎ ይጠቀሙ
-        // $isProfileComplete = $user->profile_complete ?? false;
+
+        // ✅ Build a FULL avatar URL
+        $avatarUrl = null;
+        if (!empty($user->avatar)) {
+            $raw = $user->avatar;
+
+            // Already a full URL
+            if (str_starts_with($raw, 'http://') ||
+                str_starts_with($raw, 'https://') ||
+                str_starts_with($raw, 'data:')) {
+                $avatarUrl = $raw;
+            } else {
+                // Relative path → prepend storage URL
+                $avatarUrl = asset('storage/' . ltrim($raw, '/'));
+            }
+        }
 
         return [
             'id'                  => $user->id,
             'name'                => $user->name,
             'email'               => $user->email,
             'phone'               => $user->phone_number ?? null,
+            'phone_number'        => $user->phone_number ?? null,
             'role'                => $user->role ?? 'user',
-            'avatar'              => $user->avatar ?? null,
+            'avatar'              => $avatarUrl,          // ✅ full URL
+            'avatar_url'          => $avatarUrl,          // ✅ alias for compat
             'is_profile_complete' => $isProfileComplete,
+            'email_verified_at'   => $user->email_verified_at,
+            'created_at'          => $user->created_at,
         ];
     }
 
     // ============================================================
-    // 1. LOGIN (Email + Password)
+    // 1. LOGIN
     // ============================================================
     public function login(Request $request)
     {
@@ -155,8 +175,6 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
-        
-        // ✅ Phone ካለ → home, ካልሆነ → complete_profile
         $isComplete = !empty($user->phone_number) && !empty($user->name);
 
         $user->update(['otp_code' => null, 'otp_expires_at' => null]);
@@ -195,14 +213,13 @@ class AuthController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        // ✅ አዲስ token ያዙሩ
         $user->tokens()->delete();
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'success'     => true,
             'message'     => 'Profile completed successfully',
-            'next_screen' => 'home',  // ✅ ይህን ያክሉ
+            'next_screen' => 'home',
             'data'        => [
                 'token'               => $token,
                 'user'                => $this->formatUserResponse($user),
@@ -218,7 +235,8 @@ class AuthController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data'    => $this->formatUserResponse($request->user())
+            'data'    => $this->formatUserResponse($request->user()),
+            'user'    => $this->formatUserResponse($request->user()), // ✅ compat
         ]);
     }
 
@@ -235,17 +253,16 @@ class AuthController extends Controller
     }
 
     // ============================================================
-    // 7. GOOGLE LOGIN — ✅ ቀጥታ ወደ HOME ይሂድ
+    // 7. GOOGLE LOGIN
     // ============================================================
     public function googleLogin(Request $request)
     {
         // ----- 1. VALIDATION -----
         $validator = Validator::make($request->all(), [
-            'id_token'     => 'required|string',
-            'access_token' => 'nullable|string',
-            'email'        => 'nullable|email',
-            'name'         => 'nullable|string|max:255',
-            'photo'        => 'nullable|string',
+            'id_token' => 'required|string',
+            'email'    => 'nullable|email',
+            'name'     => 'nullable|string|max:255',
+            'photo'    => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -256,39 +273,64 @@ class AuthController extends Controller
         }
 
         try {
-            // ----- 2. VERIFY GOOGLE ID TOKEN -----
-            $clientId = config('services.google.client_id');
+            $idToken = $request->id_token;
 
-            if (empty($clientId)) {
-                Log::error('GOOGLE_CLIENT_ID is not configured in .env');
+            Log::info('🔵 Google login request received');
+
+            // ----- 2. VERIFY WITH SHORT TIMEOUT -----
+            try {
+                $googleResponse = Http::timeout(5)
+                    ->connectTimeout(3)
+                    ->withOptions(['verify' => false])
+                    ->get('https://oauth2.googleapis.com/tokeninfo', [
+                        'id_token' => $idToken,
+                    ]);
+            } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                Log::error('❌ Google connection failed', [
+                    'error' => $e->getMessage(),
+                ]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Server configuration error: Google Client ID missing',
-                ], 500);
+                    'message' => 'Cannot reach Google. Please check your internet.',
+                ], 504);
             }
 
-            $client = new GoogleClient(['client_id' => $clientId]);
-            $payload = $client->verifyIdToken($request->id_token);
-
-            // ----- DEBUG LOG -----
-            Log::info('🔍 Google verifyIdToken result', [
-                'payload_type' => gettype($payload),
-                'payload'      => $payload,
-                'audience_cfg' => $clientId,
-            ]);
-
-            if ($payload === false || $payload === null || !is_array($payload)) {
-                Log::warning('Google token verification failed (returned false)', [
-                    'audience' => $clientId,
-                    'email'    => $request->email,
+            if (!$googleResponse->successful()) {
+                Log::warning('❌ Google token invalid', [
+                    'status' => $googleResponse->status(),
+                    'body'   => $googleResponse->body(),
                 ]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid Google token. Please try signing in again.',
+                    'message' => 'Invalid Google token. Please try again.',
                 ], 401);
             }
 
-            // ----- 3. EXTRACT USER INFO -----
+            $payload = $googleResponse->json();
+
+            Log::info('✅ Google token verified', [
+                'email' => $payload['email'] ?? 'unknown',
+            ]);
+
+            // ----- 3. VERIFY AUDIENCE -----
+            $clientId = config('services.google.client_id');
+            $aud = $payload['aud'] ?? '';
+
+            if ($clientId && $aud !== $clientId) {
+                Log::warning('❌ Audience mismatch', [
+                    'expected' => $clientId,
+                    'received' => $aud,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Google configuration mismatch',
+                ], 401);
+            }
+
+            // ----- 4. EXTRACT USER INFO -----
             $googleId = $payload['sub'] ?? null;
             $email    = $payload['email'] ?? null;
             $name     = $payload['name'] ?? $request->name ?? 'Google User';
@@ -296,7 +338,6 @@ class AuthController extends Controller
             $verified = $payload['email_verified'] ?? false;
 
             if (!$googleId || !$email) {
-                Log::warning('Google token missing required claims');
                 return response()->json([
                     'success' => false,
                     'message' => 'Google token missing required information',
@@ -304,89 +345,71 @@ class AuthController extends Controller
             }
 
             if (!$verified) {
-                Log::warning('Google email not verified', ['email' => $email]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Google email is not verified',
                 ], 401);
             }
 
-            Log::info('Google auth attempt', [
-                'email'     => $email,
-                'google_id' => $googleId,
-            ]);
-
-            // ----- 4. FIND OR CREATE USER -----
+            // ----- 5. FIND OR CREATE USER -----
             $user = User::where('email', $email)->first();
             $isNewUser = false;
 
             if (!$user) {
-                // ✅ አዲስ ተጠቃሚ → AUTO-REGISTER
                 $user = User::create([
                     'name'              => $name,
                     'email'             => $email,
                     'google_id'         => $googleId,
                     'avatar'            => $picture,
                     'password'          => Hash::make(Str::random(32)),
-                    'email_verified_at' => $verified ? now() : null,
+                    'email_verified_at' => now(),
                     'phone_number'      => null,
                     'role'              => 'user',
                 ]);
                 $isNewUser = true;
 
-                Log::info('✅ New user registered via Google', [
+                Log::info('✅ New user via Google', [
                     'user_id' => $user->id,
                     'email'   => $email,
                 ]);
             } else {
-                // ✅ ያለ ተጠቃሚ → UPDATE
                 $user->update([
-                    'google_id'         => $googleId,
-                    'avatar'            => $picture ?? $user->avatar,
-                    'email_verified_at' => $verified ? ($user->email_verified_at ?? now()) : $user->email_verified_at,
+                    'google_id' => $googleId,
+                    'avatar'    => $picture ?? $user->avatar,
                 ]);
 
-                Log::info('✅ Existing user logged in via Google', [
+                Log::info('✅ Existing user via Google', [
                     'user_id' => $user->id,
                     'email'   => $email,
                 ]);
             }
-
-            // ----- 5. ✅ PROFILE COMPLETE CHECK -----
-            // ስም እና password ካሉ profile complete ነው
-            // Google ተጠቃሚ ስም ስለሚይዝ profile complete ይሆናል
-            $isProfileComplete = !empty($user->name)
-                              && strlen($user->name) > 2
-                              && !empty($user->password);
 
             // ----- 6. CREATE TOKEN -----
             $user->tokens()->delete();
             $token = $user->createToken('google_auth_token')->plainTextToken;
             $user->update(['last_login_at' => now()]);
 
-            // ----- 7. ✅ SUCCESS RESPONSE — ቀጥታ HOME -----
+            // ----- 7. SUCCESS RESPONSE -----
             return response()->json([
                 'success'     => true,
                 'message'     => $isNewUser
                                     ? 'Account created successfully'
                                     : 'Login successful',
-                // ✅ ሁልጊዜ 'home' — complete_profile አያስፈልግም
                 'next_screen' => 'home',
                 'data'        => [
                     'token'               => $token,
                     'user'                => $this->formatUserResponse($user),
                     'role'                => $user->role ?? 'user',
                     'email'               => $user->email,
-                    'is_profile_complete' => true,  // ✅ ሁልጊዜ true
+                    'is_profile_complete' => true,
                 ],
             ], 200);
 
         } catch (\Exception $e) {
-            Log::error('Google login error', [
+            Log::error('❌ Google login error', [
                 'message' => $e->getMessage(),
                 'line'    => $e->getLine(),
                 'file'    => $e->getFile(),
-                'email'   => $request->email,
             ]);
 
             return response()->json([

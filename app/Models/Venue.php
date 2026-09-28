@@ -18,6 +18,10 @@ class Venue extends Model
         'location',
         'city',
         'sub_city',
+        'address',            // 🆕 Added
+        'sport',              // 🆕 Added
+        'opening_time',       // 🆕 Added
+        'closing_time',       // 🆕 Added
         'capacity',
         'price_per_hour',
         'image',
@@ -39,6 +43,10 @@ class Venue extends Model
         'approved_at' => 'datetime',
     ];
 
+    /* ═══════════════════════════════════════════════════════════
+       ACCESSORS
+       ═══════════════════════════════════════════════════════════ */
+
     // ✅ የምስል URL
     public function getImageUrlAttribute()
     {
@@ -48,14 +56,38 @@ class Venue extends Model
         return null;
     }
 
-    // ✅ Relationships
+    /* ═══════════════════════════════════════════════════════════
+       RELATIONSHIPS
+       ═══════════════════════════════════════════════════════════ */
+
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function owner()
+    {
+        return $this->belongsTo(User::class, 'owner_id');
     }
 
     public function bookings()
     {
         return $this->hasMany(Booking::class);
     }
+
+    // 🆕 Weekly schedule slots
+    public function schedules()
+    {
+        return $this->hasMany(VenueSchedule::class)->orderBy('day_of_week');
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       APPENDS
+       ═══════════════════════════════════════════════════════════ */
+
+    /**
+     * Automatically append these to every JSON response
+     * so the frontend always has a ready-to-use image URL.
+     */
+    protected $appends = ['image_url'];
 }

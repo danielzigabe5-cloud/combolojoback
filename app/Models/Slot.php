@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class VenueSchedule extends Model
+class Slot extends Model
 {
     use HasFactory;
 
@@ -16,7 +16,7 @@ class VenueSchedule extends Model
         'start_time',
         'end_time',
         'is_booked',
-        'day_of_week',
+        'booking_id',
     ];
 
     protected $casts = [
@@ -27,5 +27,10 @@ class VenueSchedule extends Model
     public function venue(): BelongsTo
     {
         return $this->belongsTo(Venue::class);
+    }
+
+    public function booking(): BelongsTo
+    {
+        return $this->belongsTo(Booking::class);
     }
 }

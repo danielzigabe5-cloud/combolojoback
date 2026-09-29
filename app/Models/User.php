@@ -19,7 +19,7 @@ class User extends Authenticatable
         'phone_country_code',
         'phone_country_iso',
         'password',
-        'google_id',       // ✅
+        'google_id',
         'avatar',
         'role',
         'otp_code',
@@ -30,10 +30,10 @@ class User extends Authenticatable
         'phone_verified_at',
 
         // 🆕 Admin Users page fields
-        'status',          // active | pending | blocked
-        'is_active',       // boolean
-        'city',            // optional location
-        'bank_name',       // partner bank account
+        'status',
+        'is_active',
+        'city',
+        'bank_name',
         'bank_account_number',
         'bank_account_name',
     ];
@@ -52,10 +52,32 @@ class User extends Authenticatable
         'created_at'           => 'datetime',
         'updated_at'           => 'datetime',
         'deleted_at'           => 'datetime',
-
-        // 🆕 New casts
-        'is_active' => 'boolean',
+        'is_active'            => 'boolean',
     ];
+
+    /**
+     * ═══════════════════════════════════════════
+     * ✅ AVATAR URL — በ JSON response ውስጥ ሁልጊዜ ይካተት
+     * ═══════════════════════════════════════════
+     */
+    protected $appends = ['avatar_url'];
+
+    public function getAvatarUrlAttribute(): ?string
+    {
+        if (empty($this->avatar)) {
+            return null;
+        }
+
+        // Full URL ከሆነ በቀጥታ ተመልስ
+        if (str_starts_with($this->avatar, 'http://')
+            || str_starts_with($this->avatar, 'https://')
+            || str_starts_with($this->avatar, 'data:')) {
+            return $this->avatar;
+        }
+
+        // Relative path → ሙሉ storage URL
+        return asset('storage/' . ltrim($this->avatar, '/'));
+    }
 
     /* ============================================================
        ROLE CHECKS
@@ -75,7 +97,6 @@ class User extends Authenticatable
         return $this->role === 'partner';
     }
 
-    // 🆕 Accept both `owner` and `partner` role names
     public function isPartner(): bool
     {
         return in_array($this->role, ['owner', 'partner'], true);
@@ -99,7 +120,6 @@ class User extends Authenticatable
         return !is_null($this->phone_verified_at);
     }
 
-    // 🆕 Status helpers for admin page
     public function isActive(): bool
     {
         return ($this->status ?? 'active') === 'active'
@@ -164,23 +184,23 @@ class User extends Authenticatable
         return $this->hasOne(NotificationSetting::class);
     }
 
-    // 🆕 Venues owned by this user (for partner/admin dashboards)
     public function venues()
     {
         return $this->hasMany(Venue::class, 'owner_id');
     }
+
     public function wallet()
-{
-    return $this->hasOne(Wallet::class);
-}
+    {
+        return $this->hasOne(Wallet::class);
+    }
 
-public function payouts()
-{
-    return $this->hasMany(Payout::class);
-}
+    public function payouts()
+    {
+        return $this->hasMany(Payout::class);
+    }
 
-public function transactions()
-{
-    return $this->hasMany(Transaction::class);
-}
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
+    }
 }

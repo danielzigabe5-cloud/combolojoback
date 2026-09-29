@@ -12,14 +12,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // ለCORS ማዋቀር - ሁሉንም ጥያቄዎች ለመፍቀድ
+        // CORS ማዋቀር
         $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
-        
-       $middleware->alias([
-        'owner' => \App\Http\Middleware\OwnerMiddleware::class, // 👈 ይህ መስመር መኖሩን አረጋግጥ
-        'admin' => \App\Http\Middleware\AdminMiddleware::class,
-        'user' => \App\Http\Middleware\UserMiddleware::class,
-    ]);
+
+        // 🆕 Middleware aliases — ሁሉም በአንድ ቦታ
+        $middleware->alias([
+            'owner'   => \App\Http\Middleware\OwnerMiddleware::class,
+            'admin'   => \App\Http\Middleware\AdminMiddleware::class,
+            'user'    => \App\Http\Middleware\UserMiddleware::class,
+            'partner' => \App\Http\Middleware\PartnerMiddleware::class, // 🆕
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

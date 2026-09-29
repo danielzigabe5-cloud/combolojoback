@@ -48,59 +48,56 @@ class PayoutController extends Controller
        List all payout requests
        ═══════════════════════════════════════════════ */
     public function index(Request $request)
-    {
-        try {
-            // Payouts
-            $payouts = Payout::with('user:id,name,email')
-                ->orderByRaw("FIELD(status, 'pending', 'paid', 'rejected')")
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($p) {
-                    return [
-                        'id'             => $p->id,
-                        'partner_name'   => $p->user->name ?? 'Unknown',
-                        'partner_email'  => $p->user->email ?? null,
-                        'amount'         => (float) $p->amount,
-                        'method'         => $p->method,
-                        'account_number' => $p->account_number,
-                        'bank_name'      => $p->bank_name,
-                        'status'         => $p->status,
-                        'created_at'     => $p->created_at,
-                    ];
-                });
+{
+    try {
+        $payouts = Payout::with('user:id,name,email')
+            ->orderByRaw("FIELD(status, 'pending', 'paid', 'rejected')")
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($p) {
+                return [
+                    'id'             => $p->id,
+                    'partner_name'   => $p->user->name ?? 'Unknown',
+                    'partner_email'  => $p->user->email ?? null,
+                    'amount'         => (float) $p->amount,
+                    'method'         => $p->method,
+                    'account_number' => $p->account_number,
+                    'bank_name'      => $p->bank_name,
+                    'status'         => $p->status,
+                    'created_at'     => $p->created_at,
+                ];
+            });
 
-            // Recent transactions
-            $transactions = Transaction::with('user:id,name')
-                ->orderBy('created_at', 'desc')
-                ->limit(100)
-                ->get()
-                ->map(function ($t) {
-                    return [
-                        'id'          => $t->id,
-                        'description' => $t->description,
-                        'type'        => $t->type,
-                        'amount'      => (float) $t->amount,
-                        'reference'   => $t->reference,
-                        'created_at'  => $t->created_at,
-                    ];
-                });
+        $transactions = Transaction::with('user:id,name')
+            ->orderBy('created_at', 'desc')
+            ->limit(100)
+            ->get()
+            ->map(function ($t) {
+                return [
+                    'id'          => $t->id,
+                    'description' => $t->description,
+                    'type'        => $t->type,
+                    'amount'      => (float) $t->amount,
+                    'reference'   => $t->reference,
+                    'created_at'  => $t->created_at,
+                ];
+            });
 
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'payouts'      => $payouts,
-                    'transactions' => $transactions,
-                ],
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Admin payouts index error: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to load payouts.',
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'payouts'      => $payouts,
+                'transactions' => $transactions,
+            ],
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Admin payouts index error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to load payouts.',
+        ], 500);
     }
-
+}
     /* ═══════════════════════════════════════════════
        PATCH /api/admin/payouts/{id}/approve
        Approve a payout (mark as paid)

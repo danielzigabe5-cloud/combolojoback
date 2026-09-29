@@ -12,6 +12,11 @@ use Illuminate\Support\Facades\Validator;
 
 class BookingController extends Controller
 {
+    /* ═══════════════════════════════════════════════════════════
+       ⚠️ EXISTING METHODS — UNCHANGED
+       ነባር ዘዴዎች — ምንም አልተለወጡም
+       ═══════════════════════════════════════════════════════════ */
+
     /**
      * ከFlutter (Mobile) የሚላክ ቡኪንግ መቀበያ
      */
@@ -37,7 +42,6 @@ class BookingController extends Controller
         }
 
         try {
-            // ✅ በተመሳሳይ ጊዜ ቦታ መኖሩን አረጋግጥ
             $start = Carbon::parse($request->start_time);
             $end = Carbon::parse($request->end_time);
 
@@ -59,7 +63,6 @@ class BookingController extends Controller
                 ], 409);
             }
 
-            // ምስል ማስቀመጥ
             $path = null;
             if ($request->hasFile('payment_screenshot')) {
                 $path = $request->file('payment_screenshot')->store('payments', 'public');
@@ -109,7 +112,7 @@ class BookingController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'available' => false, 
+                'available' => false,
                 'message' => $validator->errors()->first()
             ], 422);
         }
@@ -118,7 +121,6 @@ class BookingController extends Controller
             $start = Carbon::parse($request->start_time);
             $end = Carbon::parse($request->end_time);
 
-            // ✅ በተመሳሳይ ጊዜ የተያዙ ቦታዎችን ፈልግ
             $existingBooking = Booking::where('venue_id', $request->venue_id)
                 ->where('status', '!=', 'rejected')
                 ->where(function ($query) use ($start, $end) {
@@ -182,8 +184,7 @@ class BookingController extends Controller
     {
         try {
             $booking = Booking::findOrFail($id);
-            
-            // ✅ ሌላ ቡኪንግ በተመሳሳይ ጊዜ እንዳለ አረጋግጥ
+
             $conflict = Booking::where('venue_id', $booking->venue_id)
                 ->where('id', '!=', $booking->id)
                 ->where('status', 'confirmed')
@@ -215,7 +216,7 @@ class BookingController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Failed to confirm: ' . $e->getMessage()
             ], 500);
         }
@@ -238,7 +239,7 @@ class BookingController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Error rejecting booking: ' . $e->getMessage()
             ], 500);
         }
@@ -247,138 +248,414 @@ class BookingController extends Controller
     /**
      * ለሞባይል ተጠቃሚ የራሱን ቡኪንግ ማሳያ
      */
-   public function myBookings()
-{
-    $userId = Auth::id();
-    
-    \Log::info('myBookings called', [
-        'user_id'    => $userId,
-        'auth_check' => Auth::check(),
-        'auth_email' => Auth::user()?->email,
-        'header'     => request()->header('Authorization'),
-    ]);
+    public function myBookings()
+    {
+        $userId = Auth::id();
 
-    // ✅ Auth null ከሆነ ግልጽ 401 error
-    if (!$userId) {
+        \Log::info('myBookings called', [
+            'user_id'    => $userId,
+            'auth_check' => Auth::check(),
+            'auth_email' => Auth::user()?->email,
+            'header'     => request()->header('Authorization'),
+        ]);
+
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'error'   => 'Unauthenticated',
+                'message' => 'Token missing or invalid. Please login again.'
+            ], 401);
+        }
+
+        $bookings = Booking::with(['venue'])
+            ->where('user_id', $userId)
+            ->latest()
+            ->get();
+
         return response()->json([
-            'success' => false,
-            'error'   => 'Unauthenticated',
-            'message' => 'Token missing or invalid. Please login again.'
-        ], 401);
+            'success'  => true,
+            'count'    => $bookings->count(),
+            'bookings' => $bookings,
+        ]);
     }
-
-    $bookings = Booking::with(['venue'])
-        ->where('user_id', $userId)
-        ->latest()
-        ->get();
-
-    return response()->json([
-        'success'  => true,
-        'count'    => $bookings->count(),
-        'bookings' => $bookings,
-    ]);
-}
 
     /**
      * ዝርዝር መረጃ ማሳያ
      */
     public function show($id)
-{
-    $booking = Booking::with(['venue', 'user'])->findOrFail($id);
-    
-    $user = Auth::user();
-    if (!$user) {
-        return response()->json(['error' => 'Unauthenticated'], 401);
-    }
-    
-    if ($booking->user_id != $user->id && $user->role !== 'admin') {
-        return response()->json(['error' => 'Unauthorized'], 403);
-    }
-    
-    return response()->json($booking);
-}
-    // app/Http/Controllers/Api/BookingController.php
+    {
+        $booking = Booking::with(['venue', 'user'])->findOrFail($id);
 
-/**
- * ✅ ነፃ የሆኑ ጊዜ ክፍተቶችን ለማምጣት
- */
-public function getAvailableTimeSlots(Request $request)
-{
-    $validator = Validator::make($request->all(), [
-        'venue_id' => 'required|exists:venues,id',
-        'date' => 'required|date',
-        'duration' => 'required|numeric|min:1',
-    ]);
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
 
-    if ($validator->fails()) {
-        return response()->json([
-            'success' => false,
-            'message' => $validator->errors()->first()
-        ], 422);
+        if ($booking->user_id != $user->id && $user->role !== 'admin') {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        return response()->json($booking);
     }
 
-    try {
-        $date = Carbon::parse($request->date);
-        $duration = (float) $request->duration;
-        
-        // የተያዙ ጊዜያትን አግኝ
-        $bookedSlots = Booking::where('venue_id', $request->venue_id)
-            ->where('status', '!=', 'rejected')
-            ->whereDate('start_time', $date)
-            ->select('start_time', 'end_time')
-            ->get();
+    /**
+     * ✅ ነፃ የሆኑ ጊዜ ክፍተቶችን ለማምጣት
+     */
+    public function getAvailableTimeSlots(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'venue_id' => 'required|exists:venues,id',
+            'date' => 'required|date',
+            'duration' => 'required|numeric|min:1',
+        ]);
 
-        // ከ8:00 AM እስከ 10:00 PM ያሉ ጊዜያት
-        $startHour = 8;
-        $endHour = 22;
-        $availableSlots = [];
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first()
+            ], 422);
+        }
 
-        for ($hour = $startHour; $hour < $endHour; $hour++) {
-            $slotStart = Carbon::parse($date->format('Y-m-d') . " $hour:00:00");
-            $slotEnd = Carbon::parse($date->format('Y-m-d') . " " . ($hour + $duration) . ":00:00");
+        try {
+            $date = Carbon::parse($request->date);
+            $duration = (float) $request->duration;
 
-            // ከ10:00 PM በላይ ከሆነ አቁም
-            if ($slotEnd->hour > $endHour) {
-                break;
-            }
+            $bookedSlots = Booking::where('venue_id', $request->venue_id)
+                ->where('status', '!=', 'rejected')
+                ->whereDate('start_time', $date)
+                ->select('start_time', 'end_time')
+                ->get();
 
-            // ይህ ጊዜ ተይዟል?
-            $isBooked = false;
-            foreach ($bookedSlots as $booked) {
-                $bookedStart = Carbon::parse($booked->start_time);
-                $bookedEnd = Carbon::parse($booked->end_time);
+            $startHour = 8;
+            $endHour = 22;
+            $availableSlots = [];
 
-                if ($slotStart->lt($bookedEnd) && $slotEnd->gt($bookedStart)) {
-                    $isBooked = true;
+            for ($hour = $startHour; $hour < $endHour; $hour++) {
+                $slotStart = Carbon::parse($date->format('Y-m-d') . " $hour:00:00");
+                $slotEnd = Carbon::parse($date->format('Y-m-d') . " " . ($hour + $duration) . ":00:00");
+
+                if ($slotEnd->hour > $endHour) {
                     break;
+                }
+
+                $isBooked = false;
+                foreach ($bookedSlots as $booked) {
+                    $bookedStart = Carbon::parse($booked->start_time);
+                    $bookedEnd = Carbon::parse($booked->end_time);
+
+                    if ($slotStart->lt($bookedEnd) && $slotEnd->gt($bookedStart)) {
+                        $isBooked = true;
+                        break;
+                    }
+                }
+
+                if (!$isBooked) {
+                    $availableSlots[] = [
+                        'start_time' => $slotStart->format('h:i A'),
+                        'end_time' => $slotEnd->format('h:i A'),
+                        'start_hour' => $slotStart->hour,
+                        'start_minute' => $slotStart->minute,
+                        'end_hour' => $slotEnd->hour,
+                        'end_minute' => $slotEnd->minute,
+                    ];
                 }
             }
 
-            if (!$isBooked) {
-                $availableSlots[] = [
-                    'start_time' => $slotStart->format('h:i A'),
-                    'end_time' => $slotEnd->format('h:i A'),
-                    'start_hour' => $slotStart->hour,
-                    'start_minute' => $slotStart->minute,
-                    'end_hour' => $slotEnd->hour,
-                    'end_minute' => $slotEnd->minute,
-                ];
-            }
+            return response()->json([
+                'success' => true,
+                'slots' => $availableSlots,
+                'total' => count($availableSlots),
+                'date' => $date->format('Y-m-d'),
+                'duration' => $duration,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'slots' => $availableSlots,
-            'total' => count($availableSlots),
-            'date' => $date->format('Y-m-d'),
-            'duration' => $duration,
-        ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Error: ' . $e->getMessage()
-        ], 500);
     }
-}
+
+    /* ═══════════════════════════════════════════════════════════
+       🆕 NEW METHODS — PARTNER BOOKINGS
+       አዲስ ዘዴዎች — ለአጋር (Partner) ብቻ
+       
+       🔒 የደንበኛ ስም ብቻ ይላካል — ስልክ, ኢሜይል አይላክም
+       ═══════════════════════════════════════════════════════════ */
+
+    /**
+     * 🎯 የአጋሩን ቦታ ማስያዣዎች ያመጣል
+     * 
+     * 🔒 የደንበኛ ስም ብቻ ይመልሳል
+     * ❌ ስልክ ቁጥር — አይላክም
+     * ❌ ኢሜይል — አይላክም
+     */
+    public function partnerBookings(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized.',
+                ], 401);
+            }
+
+            // 🎯 የአጋሩን ሜዳዎች ID ብቻ አምጣ
+            $venueIds = Venue::where('owner_id', $user->id)
+                ->orWhere('user_id', $user->id)
+                ->pluck('id');
+
+            if ($venueIds->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data'    => [],
+                ]);
+            }
+
+            // 🎯 Filters
+            $status  = $request->query('status', 'All');
+            $date    = $request->query('date');
+            $venueId = $request->query('venue_id');
+
+            $query = Booking::with([
+                    'user:id,name',   // 🔑 ስም ብቻ — ስልክ አይደለም!
+                    'venue:id,name',  // 🔑 የሜዳ ስም ብቻ
+                ])
+                ->whereIn('venue_id', $venueIds)
+                ->latest();
+
+            if ($status && $status !== 'All') {
+                $query->where('status', strtolower($status));
+            }
+
+            if ($date) {
+                $query->whereDate('start_time', $date);
+            }
+
+            if ($venueId) {
+                $query->where('venue_id', $venueId);
+            }
+
+            $bookings = $query->get()->map(function ($booking) {
+                return [
+                    'id'         => $booking->id,
+                    'customer'   => $booking->user?->name ?? $booking->user_name ?? 'Customer',
+                    // ❌ 'phone' — ጨርሶ አይላክም!
+                    'venue_id'   => $booking->venue_id,
+                    'venue_name' => $booking->venue?->name ?? 'Unknown',
+                    'date'       => $booking->start_time?->format('M d, Y') ?? '—',
+                    'date_raw'   => $booking->start_time?->format('Y-m-d') ?? null,
+                    'time'       => $this->formatTimeRange($booking),
+                    'amount'     => number_format($booking->total_price ?? 0),
+                    'status'     => ucfirst($booking->status),
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data'    => $bookings,
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('partnerBookings error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load bookings: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * 🎯 የአጋሩ የስታቲስቲክስ ዳታ
+     * 
+     * ይመልሳል: total, confirmed, pending, cancelled, today, venues
+     */
+    public function partnerBookingStats(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized.',
+                ], 401);
+            }
+
+            $venueIds = Venue::where('owner_id', $user->id)
+                ->orWhere('user_id', $user->id)
+                ->pluck('id');
+
+            if ($venueIds->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'data'    => [
+                        'total'     => 0,
+                        'confirmed' => 0,
+                        'pending'   => 0,
+                        'cancelled' => 0,
+                        'today'     => 0,
+                        'venues'    => 0,
+                    ],
+                ]);
+            }
+
+            $today = Carbon::today()->toDateString();
+
+            $stats = Booking::whereIn('venue_id', $venueIds)
+                ->selectRaw("
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
+                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'rejected' OR status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
+                    SUM(CASE WHEN DATE(start_time) = ? THEN 1 ELSE 0 END) as today
+                ", [$today])
+                ->first();
+
+            return response()->json([
+                'success' => true,
+                'data'    => [
+                    'total'     => (int) ($stats->total ?? 0),
+                    'confirmed' => (int) ($stats->confirmed ?? 0),
+                    'pending'   => (int) ($stats->pending ?? 0),
+                    'cancelled' => (int) ($stats->cancelled ?? 0),
+                    'today'     => (int) ($stats->today ?? 0),
+                    'venues'    => $venueIds->count(),
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('partnerBookingStats error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load stats.',
+            ], 500);
+        }
+    }
+
+    /**
+     * 🎯 የቦታ ማስያዣ ማረጋገጫ (Partner)
+     */
+    public function confirmPartnerBooking($id)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized.',
+                ], 401);
+            }
+
+            // የአጋሩን ሜዳዎች ID ብቻ
+            $venueIds = Venue::where('owner_id', $user->id)
+                ->orWhere('user_id', $user->id)
+                ->pluck('id');
+
+            $booking = Booking::whereIn('venue_id', $venueIds)->find($id);
+
+            if (!$booking) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Booking not found.',
+                ], 404);
+            }
+
+            $booking->status = 'confirmed';
+            $booking->confirmed_at = now();
+            $booking->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Booking confirmed.',
+                'data'    => [
+                    'id'     => $booking->id,
+                    'status' => 'Confirmed',
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('confirmPartnerBooking error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to confirm booking.',
+            ], 500);
+        }
+    }
+
+    /**
+     * 🎯 የቦታ ማስያዣ ስረዛ (Partner)
+     */
+    public function rejectPartnerBooking($id)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized.',
+                ], 401);
+            }
+
+            $venueIds = Venue::where('owner_id', $user->id)
+                ->orWhere('user_id', $user->id)
+                ->pluck('id');
+
+            $booking = Booking::whereIn('venue_id', $venueIds)->find($id);
+
+            if (!$booking) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Booking not found.',
+                ], 404);
+            }
+
+            $booking->status = 'rejected';
+            $booking->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Booking cancelled.',
+                'data'    => [
+                    'id'     => $booking->id,
+                    'status' => 'Rejected',
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('rejectPartnerBooking error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to cancel booking.',
+            ], 500);
+        }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       🆕 HELPER
+       ═══════════════════════════════════════════════════════════ */
+
+    /**
+     * የጊዜ ክልል ፎርማት (4:00 PM - 5:00 PM)
+     */
+    private function formatTimeRange($booking): string
+    {
+        if (!$booking->start_time) return '—';
+
+        $start = Carbon::parse($booking->start_time)->format('g:i A');
+        $end   = $booking->end_time
+            ? Carbon::parse($booking->end_time)->format('g:i A')
+            : null;
+
+        return $end ? "{$start} - {$end}" : $start;
+    }
 }
